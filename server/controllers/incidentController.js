@@ -5,17 +5,14 @@ const Users = require("../models/Users");
 exports.createIncidents = async(req,res)=>{
     
     try {
-        const {title,description,severity,longitude,latitude} = req.body;
+        const {title,description,severity,location} = req.body;
         const incident = await Incidents.create({
         title,
         description,
         severity,
         reportedBy:req.user._id,
         status: req.user.role === "admin" ? "verified" : "pending",
-        location:{
-            type:"Point",
-            coordinates:[longitude,latitude]
-        }
+        location
        });
 
        const io = req.app.get("io");
@@ -98,7 +95,14 @@ exports.incidentStatusUpdate = async(req,res)=>{
 
 exports.findNearByResponders = async(req,res)=>{
     try {
-        const {longitude,latitude} = req.body;
+        const { incidentId } = req.query;
+
+        const incident = await Incidents.findById(incidentId);
+        if (!incident) {
+            return res.status(404).json({message:"Incident not found"});
+        }
+
+        const [longitude, latitude] = incident.location.coordinates;
 
         const responders = await Users.find({  
             role:"responder",
@@ -106,14 +110,14 @@ exports.findNearByResponders = async(req,res)=>{
                 $near:{
                     $geometry:{
                         type:"Point",
-                        coordinates:[longitude,latitude]
+                        coordinates:[longitude, latitude]
                     },
                     $maxDistance: 10000,
                 },
             }
         });
-        if(!responders){
-            return res.status(401).json({message:"No responder available"});
+        if(!responders || responders.length === 0){
+            return res.status(200).json([]);
         }
 
         return res.status(200).json(responders);

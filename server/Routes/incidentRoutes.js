@@ -6,7 +6,7 @@ const { createIncidents, getAllIncidents, getMyIncidents, assignIncident, incide
 const router = express.Router();
 
 router.post("/create-incident",protect,authRole("citizen","admin","system"),createIncidents);
-router.get("/get-all-incidents",protect,authRole("admin","responder"),getAllIncidents);
+router.get("/get-all-incidents",protect,authRole("admin","responder","citizen"),getAllIncidents);
 router.get("/my-incidents",protect,authRole("citizen"),getMyIncidents);
 router.put('/assign',protect,authRole("admin"),assignIncident);
 router.put('/incident-status',protect,authRole("responder"),incidentStatusUpdate);
