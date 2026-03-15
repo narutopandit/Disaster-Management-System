@@ -3,9 +3,19 @@ import API from '../services/api';
 import socket from '../services/socket';
 import MapView from './MapView';
 import Analytics from "../components/Analytics";
+import IncidentFilters from '../components/IncidentFilters';
+import IncidentCard from '../components/IncidentCard';
 
 const Dashboard = () => {
   const [incidents, setIncidents] = useState([]);
+  const [filteredIncidents, setFilteredIncidents] = useState([]);
+  
+
+  const fetchIncidents = async () => {
+    const res = await API.get("/get-all-incidents");
+    setIncidents(res.data);
+    setFilteredIncidents(res.data);
+  };
 
   useEffect(() => {
     fetchIncidents();
@@ -17,9 +27,75 @@ const Dashboard = () => {
     return () => socket.off("newIncident");
   }, []);
 
-  const fetchIncidents = async () => {
-    const res = await API.get("/get-all-incidents");
-    setIncidents(res.data);
+  useEffect(() => {
+
+  socket.on("incidentStatusUpdated", (updatedIncident) => {
+
+    setIncidents((prev) =>
+      prev.map((incident) =>
+        incident._id === updatedIncident._id
+          ? updatedIncident
+          : incident
+      )
+    );
+
+    setFilteredIncidents((prev) =>
+      prev.map((incident) =>
+        incident._id === updatedIncident._id
+          ? updatedIncident
+          : incident
+      )
+    );
+
+  });
+
+  return () => {
+    socket.off("incidentStatusUpdated");
+  };
+
+}, []);
+
+  const handleStatusUpdate = (incidentId, newStatus) => {
+    setIncidents((prev) =>
+      prev.map((incident) =>
+        incident._id === incidentId
+          ? { ...incident, status: newStatus }
+          : incident
+      )
+    );
+
+    setFilteredIncidents((prev) =>
+      prev.map((incident) =>
+        incident._id === incidentId
+          ? { ...incident, status: newStatus }
+          : incident
+      )
+    );
+  };
+
+  const handleFilter = ({ severity, status, search }) => {
+    let filtered = incidents;
+
+    if (severity) {
+      filtered = filtered.filter(
+        (i) => i.severity === severity
+      );
+    }
+
+    if (status) {
+      filtered = filtered.filter(
+        (i) => i.status === status
+      );
+    }
+
+    if (search) {
+      filtered = filtered.filter(
+        (i) =>
+          i.title.toLowerCase().includes(search.toLowerCase())
+      );
+    }
+
+    setFilteredIncidents(filtered);
   };
 
   return (
@@ -47,9 +123,34 @@ const Dashboard = () => {
           </p>
         </div>
       </div>
+      <IncidentFilters onFilter={handleFilter}/>
+      <MapView incidents={filteredIncidents} />
 
-      <MapView incidents={incidents} />
-      <Analytics incidents={incidents} />
+      {/* Incident Cards Section */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Recent Incidents</h2>
+          <span className="text-sm text-gray-500 dark:text-gray-400">
+            Showing {filteredIncidents.length} incident{filteredIncidents.length !== 1 ? 's' : ''}
+          </span>
+        </div>
+
+        {filteredIncidents.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="text-gray-400 dark:text-gray-500 text-6xl mb-4">📋</div>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No incidents found</h3>
+            <p className="text-gray-500 dark:text-gray-400">Try adjusting your filters or check back later for new incidents.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredIncidents.map((incident) => (
+              <IncidentCard key={incident._id} incident={incident} onStatusUpdate={handleStatusUpdate} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      <Analytics incidents={filteredIncidents} />
     </div>
   );
 };

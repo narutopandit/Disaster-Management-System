@@ -4,14 +4,14 @@ import API from "../services/api";
 const AdminPanel = () => {
   const [pending, setPending] = useState([]);
 
-  useEffect(() => {
-    fetchPending();
-  }, []);
-
   const fetchPending = async () => {
     const res = await API.get("/pending-incidents");
     setPending(res.data);
   };
+
+  useEffect(() => {
+    fetchPending();
+  }, []);
 
   const review = async (id, action) => {
     await API.put("/review", {

@@ -6,10 +6,6 @@ const AssignResponder = () => {
   const [responders, setResponders] = useState({});
   const [loadingIncident, setLoadingIncident] = useState(null);
 
-  useEffect(() => {
-    fetchIncidents();
-  }, []);
-
   const fetchIncidents = async () => {
     try {
       const res = await API.get("/get-all-incidents");
@@ -18,6 +14,10 @@ const AssignResponder = () => {
       console.error(err);
     }
   };
+
+  useEffect(() => {
+    fetchIncidents();
+  }, []);
 
   const fetchNearbyResponders = async (incidentId) => {
     try {

@@ -78,10 +78,15 @@ exports.incidentStatusUpdate = async(req,res)=>{
             return res.status(401).json({message:"Incident is not found"});
         }
 
-        if(incident.assignedTo.toString()!=req.user._id.toString()){
+        const isAssigned = incident.assignedTo && incident.assignedTo.toString() === req.user._id.toString();
+        // Allow responders (and admins) to update incident status even if not assigned
+        if (req.user.role !== 'responder' && req.user.role !== 'admin' && !isAssigned) {
             return res.status(403).json({message:"Not Authorized"});
         }
-        incident.status = status;
+
+        // Normalize status values (client may use lowercase 'in-progress')
+        const normalizedStatus = status === 'in-progress' ? 'In-progress' : status;
+        incident.status = normalizedStatus;
         await incident.save();
 
         const io = req.app.get("io");
