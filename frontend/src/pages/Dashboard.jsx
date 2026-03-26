@@ -5,10 +5,12 @@ import MapView from './MapView';
 import Analytics from "../components/Analytics";
 import IncidentFilters from '../components/IncidentFilters';
 import IncidentCard from '../components/IncidentCard';
+import AlertNotification from '../components/AlertNotification';
 
 const Dashboard = () => {
   const [incidents, setIncidents] = useState([]);
   const [filteredIncidents, setFilteredIncidents] = useState([]);
+  const [alerts, setAlerts] = useState([]);
   
 
   const fetchIncidents = async () => {
@@ -24,7 +26,37 @@ const Dashboard = () => {
       setIncidents((prev) => [data, ...prev]);
     });
 
-    return () => socket.off("newIncident");
+    // Listen for emergency alerts
+    socket.on("newAlert", (alert) => {
+      setAlerts((prev) => [alert, ...prev]);
+      
+      // Mark alert as read
+      markAlertAsRead(alert._id);
+    });
+
+    socket.on("alertStatusUpdated", (updatedAlert) => {
+      // Remove alert if status changed from active
+      if (updatedAlert.status !== "active") {
+        setAlerts((prev) => prev.filter((a) => a._id !== updatedAlert._id));
+      }
+    });
+
+    socket.on("alertDeleted", (alertId) => {
+      setAlerts((prev) => prev.filter((a) => a._id !== alertId));
+    });
+
+    socket.on("incidentDeleted", (incidentId) => {
+      setIncidents((prev) => prev.filter((incident) => incident._id !== incidentId));
+      setFilteredIncidents((prev) => prev.filter((incident) => incident._id !== incidentId));
+    });
+
+    return () => {
+      socket.off("newIncident");
+      socket.off("newAlert");
+      socket.off("alertStatusUpdated");
+      socket.off("alertDeleted");
+      socket.off("incidentDeleted");
+    };
   }, []);
 
   useEffect(() => {
@@ -54,6 +86,21 @@ const Dashboard = () => {
   };
 
 }, []);
+
+  const markAlertAsRead = async (alertId) => {
+    try {
+      const token = localStorage.getItem("token");
+      await API.post(`/alerts/${alertId}/read`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    } catch (error) {
+      console.error("Failed to mark alert as read:", error);
+    }
+  };
+
+  const handleDismissAlert = (alertId) => {
+    setAlerts((prev) => prev.filter((a) => a._id !== alertId));
+  };
 
   const handleStatusUpdate = (incidentId, newStatus) => {
     setIncidents((prev) =>
@@ -100,6 +147,16 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6">
+      {/* Alert Notifications */}
+      {alerts.map((alert) => (
+        <AlertNotification
+          key={alert._id}
+          alert={alert}
+          onClose={() => handleDismissAlert(alert._id)}
+          onRead={() => markAlertAsRead(alert._id)}
+        />
+      ))}
+
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <h1 className="text-2xl font-semibold text-gray-900">Live Incidents</h1>
         <p className="text-sm text-gray-500">Real-time incident updates based on your submissions.</p>

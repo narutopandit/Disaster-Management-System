@@ -1,5 +1,5 @@
 import React, { useContext, useState, useEffect, useRef } from 'react';
-import { FaMapMarkerAlt, FaClock, FaUser, FaExclamationTriangle, FaCheckCircle, FaHourglassHalf, FaTimesCircle, FaExternalLinkAlt, FaImage, FaEdit, FaChevronDown } from 'react-icons/fa';
+import { FaMapMarkerAlt, FaClock, FaUser, FaExclamationTriangle, FaCheckCircle, FaHourglassHalf, FaTimesCircle, FaExternalLinkAlt, FaImage, FaEdit, FaChevronDown, FaTrash } from 'react-icons/fa';
 import { AuthContext } from '../context/AuthContext';
 import API from '../services/api';
 import socket from '../services/socket';
@@ -7,6 +7,7 @@ import socket from '../services/socket';
 const IncidentCard = ({ incident, onStatusUpdate }) => {
   const { user } = useContext(AuthContext);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const dropdownRef = useRef(null);
   const getSeverityColor = (severity) => {
@@ -109,6 +110,34 @@ const IncidentCard = ({ incident, onStatusUpdate }) => {
     }
   };
 
+  // Check if user can delete the incident
+  const canDelete = user?.role === 'admin' || 
+                    user?._id === incident.reportedBy?._id || 
+                    user?._id === incident.assignedTo?._id;
+
+  const handleDeleteIncident = async () => {
+    if (!window.confirm('Are you sure you want to delete this incident? This action cannot be undone.')) {
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      await API.delete('/delete-incident', {
+        data: {
+          incidentId: incident._id
+        }
+      });
+
+      socket.emit('incidentDeleted', incident._id);
+      alert('Incident deleted successfully');
+    } catch (error) {
+      console.error('Error deleting incident:', error);
+      alert('Failed to delete incident. Please try again.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const statusOptions = [
     { value: 'pending', label: 'Pending', color: 'bg-orange-100 text-orange-800' },
     { value: 'verified', label: 'Verified', color: 'bg-blue-100 text-blue-800' },
@@ -196,6 +225,18 @@ const IncidentCard = ({ incident, onStatusUpdate }) => {
                 </div>
               )}
             </div>
+          )}
+
+          {/* Delete Button */}
+          {canDelete && (
+            <button
+              onClick={handleDeleteIncident}
+              disabled={isDeleting}
+              title="Delete incident"
+              className="ml-2 inline-flex items-center justify-center w-10 h-10 rounded-lg text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <FaTrash />
+            </button>
           )}
         </div>
       </div>
