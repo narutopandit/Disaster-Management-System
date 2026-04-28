@@ -6,6 +6,7 @@ const app = require("./app.js");
 const {Server} = require("socket.io");
 const cron = require("node-cron");
 const fetchNewsAndCreateIncidents = require("./utils/newsFetcher.js");
+const { initializeSocketManager } = require("./Socket/socketManager");
 
 const startServer = async () => {
     await connectDb();
@@ -19,21 +20,8 @@ const startServer = async () => {
         }
     });
 
-
-
-    io.on("connection",(socket)=>{
-        console.log(`user connected ${socket.id}`);
-
-        socket.on("joinRoom",({userId,role})=>{
-            socket.join(role);
-            socket.join(`user_${userId}`);
-            console.log(`User ${userId} joined ${role}`);
-        })
-
-        socket.on("disconnect",()=>{
-            console.log("User disconnected");
-        })
-    })
+    // Initialize Socket Manager with all event handlers
+    initializeSocketManager(io);
     
      app.set("io",io);
     server.listen(PORT, () => {

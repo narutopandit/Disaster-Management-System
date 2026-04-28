@@ -151,7 +151,7 @@ exports.reviewsIncidents = async(req,res)=>{
         if(!incident) return res.status(401).json({message: "Incident not found"});
 
         if(action == "approve"){
-            incident.reviewStatus = action;
+            incident.reviewStatus = "approved";
             incident.status = "verified";
             await incident.save();
 
@@ -163,11 +163,46 @@ exports.reviewsIncidents = async(req,res)=>{
 
         if(action == "reject"){
             incident.reviewStatus = "rejected";
-            incident.save();
+            await incident.save();
 
             return res.json({message:"Incident is Rejected"});
         }
     } catch (error) {
         return res.status(500).json({message:error.message});
+    }
+}
+
+// Delete incident
+exports.deleteIncident = async (req, res) => {
+    try {
+        const { incidentId } = req.body;
+        
+        if (!incidentId) {
+            return res.status(400).json({ message: "Incident ID is required" });
+        }
+
+        const incident = await Incidents.findById(incidentId);
+        if (!incident) {
+            return res.status(404).json({ message: "Incident not found" });
+        }
+
+        // Allow only incident creator, assigned responder, or admin to delete
+        const isCreator = incident.reportedBy.toString() === req.user._id.toString();
+        const isAssigned = incident.assignedTo && incident.assignedTo.toString() === req.user._id.toString();
+        const isAdmin = req.user.role === 'admin';
+
+        if (!isCreator && !isAssigned && !isAdmin) {
+            return res.status(403).json({ message: "Not authorized to delete this incident" });
+        }
+
+        await Incidents.findByIdAndDelete(incidentId);
+
+        // Broadcast deletion to all users via Socket.IO
+        const io = req.app.get("io");
+        io.emit("incidentDeleted", incidentId);
+
+        res.status(200).json({ message: "Incident deleted successfully" });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
     }
 }

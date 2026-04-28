@@ -1,7 +1,7 @@
 const express = require("express");
 const { protect } = require("../middlewares/authMiddleware");
 const { authRole } = require("../middlewares/roleMiddleWare");
-const { createIncidents, getAllIncidents, getMyIncidents, assignIncident, incidentStatusUpdate, findNearByResponders, getPendingAutoIncidents, reviewsIncidents } = require("../controllers/incidentController");
+const { createIncidents, getAllIncidents, getMyIncidents, assignIncident, incidentStatusUpdate, findNearByResponders, getPendingAutoIncidents, reviewsIncidents, deleteIncident } = require("../controllers/incidentController");
 
 const router = express.Router();
 
@@ -13,4 +13,5 @@ router.put('/incident-status',protect,authRole("responder"),incidentStatusUpdate
 router.get('/nearby-responders',protect,authRole('admin'),findNearByResponders);
 router.get('/pending-incidents',protect,authRole("admin"),getPendingAutoIncidents);
 router.put('/review',protect,authRole("admin"),reviewsIncidents);
+router.delete('/delete-incident',protect,deleteIncident);
 module.exports = router;
